@@ -1,5 +1,6 @@
 package company;
 
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -10,18 +11,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class EmpDao {
-    private JdbcTemplate jdbcTemp;
+    private final JdbcTemplate jdbcTemp;
+
 
     public EmpDao(DataSource ds) {
         jdbcTemp = new JdbcTemplate(ds);
     }
 
-    public JdbcTemplate getJdbcTemplate() {
-        return jdbcTemp;
-    }
 
     public void createEmployee(String name) {
         jdbcTemp.update("INSERT INTO emp(emp_name) VALUES(?)", name);
@@ -66,23 +67,25 @@ public class EmpDao {
     public String findEmployeeNameById(long id){
         return jdbcTemp.queryForObject(
                 "SELECT emp_name FROM emp WHERE id = ?",
-                new Object[]{id},         //1 elemű Array az 1 db "?" helyére
-                (rs, i) -> rs.getString("emp_name")
-        );
+                new Object[]{id}, String.class);
     }
 
     public void updateEmpAge(String name, int age){
         jdbcTemp.update("UPDATE emp SET age = ? WHERE emp_name = ?;", age, name);
     }
 
-    public List<Long> getIdByName(String name){
-        return jdbcTemp.query(
-                "SELECT id FROM emp WHERE emp_name = ?", new Object[]{name},
-                (rs, i) -> rs.getLong("id"));
+    public Long getIdByName(String name){
+        try{
+        return jdbcTemp.queryForObject(
+                    "SELECT id FROM emp WHERE emp_name = ?",
+                    new Object[]{name}, Long.class);
+        } catch (EmptyResultDataAccessException e){
+            throw new IllegalStateException("No such name", e);
+        }
     }
 
     public void addPicture(String empName, String filename, InputStream ins){
-        long imgId = getIdByName(empName).get(0) + 1000;
+        long imgId = getIdByName(empName) + 1000;
         jdbcTemp.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
                 "INSERT INTO images(id, filename, content) VALUES(?,?,?)");
@@ -103,6 +106,31 @@ public class EmpDao {
         } catch (SQLException | IOException e) {
             throw new IllegalArgumentException("Error creating blob", e);
         }
+    }
+
+    public InputStream getPicture(String name) throws SQLException {
+        Long empId = getIdByName(name);
+        List<Blob> blobs = jdbcTemp.query(
+                "SELECT content FROM images WHERE (id - 1000) = ?;",
+                new Object[]{empId},
+                (rs, i) -> rs.getBlob("content"));
+        return blobs.get(0).getBinaryStream();
+    }
+
+    public List<Employee> listEmployeesBetweenIds(int min, int max){
+        String query = "SELECT emp_name, age FROM emp WHERE id BETWEEN ? AND ?;";
+        List<Map<String, Object>> empData =
+            jdbcTemp.queryForList(query, new Object[]{min, max});
+
+        List<Employee> employees = new ArrayList<>();
+        for(Map<String, Object> m : empData){
+            Employee e = new Employee( m.get("emp_name").toString() );
+            if( m.get("age") != null ) {
+                e.setAge( (int) m.get("age"));
+            }
+            employees.add(e);
+        }
+        return employees;
     }
 
 }

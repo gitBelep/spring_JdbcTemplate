@@ -5,21 +5,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
+// import org.springframework.boot.test.context.SpringBootTest;
 
-@ExtendWith(SpringExtension.class)
 // @SpringbootTest
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = Config.class)
-public class EmpDaoTest {
+class EmpDaoTest {
     @Autowired
     private EmpDao dao;
 
@@ -94,7 +94,13 @@ public class EmpDaoTest {
     }
 
     @Test
-    void testAddPicture() throws IOException {
+    void testGetIdByName(){
+        assertEquals(2L, dao.getIdByName("Második"));
+        assertThrows(IllegalStateException.class, () -> dao.getIdByName("Non Existing Name"));
+    }
+
+    @Test
+    void testAddPicture() throws IOException, SQLException {
         String inputFile = "Qtya.gif";
 
         InputStream ins1 = Files.newInputStream(Path.of("c:","training","sprJdbcTemplate","src","main","resources",inputFile));
@@ -102,9 +108,31 @@ public class EmpDaoTest {
         InputStream ins2 = Files.newInputStream(Path.of("c:","training","sprJdbcTemplate","src","main","resources",inputFile));
         dao.addPicture("Második", inputFile, ins2);
 
+        //read the image again for making an Array
         InputStream ins3 = Files.newInputStream(Path.of("c:","training","sprJdbcTemplate","src","main","resources",inputFile));
         byte[] insArr = new byte[20];
         ins3.read(insArr);
+
+        //read images of emp2 & emp5 from DB
+        InputStream empImg1 = dao.getPicture("Második");
+        byte[] empArr1 = new byte[20];
+        empImg1.read(empArr1);
+        InputStream empImg2 = dao.getPicture("Ötödik");
+        byte[] empArr2 = new byte[20];
+        empImg2.read(empArr2);
+
+        assertArrayEquals(empArr1, insArr);
+        assertArrayEquals(empArr2, insArr);
+        assertThrows(IllegalStateException.class, () -> dao.getPicture("Non Existing Name"));
+    }
+
+    @Test
+    void testListEmpBetweenIds(){
+        List<Employee> result = dao.listEmployeesBetweenIds(2,6); //BETWEEN 2 AND 6 = {2,3,4,5,6}
+        assertEquals(5, result.size());
+        for(Employee e : result){
+            System.out.println(e.getName());
+        }
 
     }
 
