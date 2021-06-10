@@ -8,6 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 // import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -86,6 +91,21 @@ public class EmpDaoTest {
         assertEquals(31, emps.get(0).getAge());
         assertEquals(31, emps.get(2).getAge());
         assertEquals("Negyvennégy", emps.get(3).getName());
+    }
+
+    @Test
+    void testAddPicture() throws IOException {
+        String inputFile = "Qtya.gif";
+
+        InputStream ins1 = Files.newInputStream(Path.of("c:","training","sprJdbcTemplate","src","main","resources",inputFile));
+        dao.addPicture("Ötödik", inputFile, ins1);
+        InputStream ins2 = Files.newInputStream(Path.of("c:","training","sprJdbcTemplate","src","main","resources",inputFile));
+        dao.addPicture("Második", inputFile, ins2);
+
+        InputStream ins3 = Files.newInputStream(Path.of("c:","training","sprJdbcTemplate","src","main","resources",inputFile));
+        byte[] insArr = new byte[20];
+        ins3.read(insArr);
+
     }
 
 }

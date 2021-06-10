@@ -5,10 +5,11 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import javax.sql.DataSource;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.sql.*;
 import java.util.List;
 
 public class EmpDao {
@@ -72,6 +73,36 @@ public class EmpDao {
 
     public void updateEmpAge(String name, int age){
         jdbcTemp.update("UPDATE emp SET age = ? WHERE emp_name = ?;", age, name);
+    }
+
+    public List<Long> getIdByName(String name){
+        return jdbcTemp.query(
+                "SELECT id FROM emp WHERE emp_name = ?", new Object[]{name},
+                (rs, i) -> rs.getLong("id"));
+    }
+
+    public void addPicture(String empName, String filename, InputStream ins){
+        long imgId = getIdByName(empName).get(0) + 1000;
+        jdbcTemp.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(
+                "INSERT INTO images(id, filename, content) VALUES(?,?,?)");
+            ps.setLong(1, imgId);
+            ps.setString(2, filename);
+            Blob blob = connection.createBlob();
+            fillBlob( blob, ins );
+            ps.setBlob(3, blob);
+            return ps;
+        });
+    }
+
+    private void fillBlob(Blob blob, InputStream isImage){
+        try(OutputStream os = blob.setBinaryStream(1);
+            BufferedInputStream is = new BufferedInputStream(isImage)
+        ){
+            is.transferTo( os );
+        } catch (SQLException | IOException e) {
+            throw new IllegalArgumentException("Error creating blob", e);
+        }
     }
 
 }
